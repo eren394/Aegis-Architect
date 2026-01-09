@@ -1,52 +1,74 @@
 import socket
 import json
-import os
-from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import sqlite3
+import os
+
+if not os.path.exists('data'):
+    os.makedirs('data')
+
+db_conn = sqlite3.connect('data/aegis_records.db', check_same_thread=False)
+cursor = db_conn.cursor()
+cursor.execute("DROP TABLE IF EXISTS telemetry") 
+cursor.execute('''
+    CREATE TABLE telemetry (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp DATETIME DEFAULT (DATETIME('now', 'localtime')),
+        voltage REAL,
+        current REAL,
+        is_anomaly INTEGER
+    )
+''')
+db_conn.commit()
+
+def save_to_db(v, c, anomaly):
+    try:
+        cursor.execute("INSERT INTO telemetry (voltage, current, is_anomaly) VALUES (?, ?, ?)", 
+                       (v, c, 1 if anomaly else 0))
+        db_conn.commit() 
+    except Exception as e:
+        print(f"DB Hatası: {e}")
 
 UDP_IP = "127.0.0.1"
-UDP_PORT = 6666
-LOG_FILE = "data/system_logs.json"
-
-if not os.path.exists("data"):
-    os.makedirs("data")
-
-print(f"[*] Kapı açılıyor: {UDP_IP}:{UDP_PORT}")
+UDP_PORT = 12345
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
-sock.settimeout(0.5) 
+sock.setblocking(False)
 
-voltages, flows, times = [], [], []
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+fig, ax = plt.subplots()
+voltages, currents = [0], [0] 
 
-def animate(i):
-    global sock
+def update(frame):
+    
     try:
         data, addr = sock.recvfrom(1024)
-        print(f"[OK] Veri geldi: {data.decode()[:20]}...") 
+        print(f"BULDUM! Veri geldi: {data.decode()}")
+        msg = json.loads(data.decode())
         
-        payload = json.loads(data.decode())
+        v = msg["voltage"]
+        c = msg["current"]
+        is_anom = v > 15.0 
         
-        payload["timestamp"] = datetime.now().strftime("%H:%M:%S")
-        with open(LOG_FILE, "a") as f:
-            f.write(json.dumps(payload) + "\n")
+        voltages.append(v)
+        currents.append(c)
+        save_to_db(v, c, is_anom)
+        
+        ax.cla()
+        ax.plot(voltages[-30:], color='#00ffcc', linewidth=2, label=f"Voltage: {v:.2f}V")
+        ax.axhline(y=15, color='r', linestyle='--', label="Limit (15V)")
+        ax.set_ylim(0, 25) 
+        ax.legend(loc='upper left')
+        ax.set_facecolor('#222222') 
+        
+        if is_anom:
+            ax.set_title("⚠️ AEGIS ALERT: ANOMALY DETECTED! ⚠️", color='red', fontweight='bold')
+        else:
+            ax.set_title("Aegis Architect - Live Resource Monitoring", color='white')
+            
+    except (BlockingIOError, json.JSONDecodeError):
+        pass
 
-        voltages.append(payload["voltage"])
-        flows.append(payload["water_flow"])
-        times.append(len(voltages))
-
-        if len(voltages) > 30:
-            voltages.pop(0); flows.pop(0); times.pop(0)
-
-        ax1.clear(); ax2.clear()
-        ax1.plot(times, voltages, color='lime'); ax1.set_title("Voltage")
-        ax2.plot(times, flows, color='cyan'); ax2.set_title("Flow")
-
-    except socket.timeout:
-        print("[!] Bekleniyor... (Veri henüz ulaşmadı)")
-    except Exception as e:
-        print(f"[HATA] {e}")
-
-ani = FuncAnimation(fig, animate, interval=500)
+ani = FuncAnimation(fig, update, interval=100, cache_frame_data=False)
+plt.style.use('dark_background') 
 plt.show()
