@@ -42,6 +42,7 @@ def update(frame):
         if ai_model:
             prediction = ai_model.predict([[v, c]])
             is_anomaly = int(prediction[0])
+            print(f"Voltaj: {v:.2f} | AI Tahmini: {'TEHLIKE' if is_anomaly else 'GÜVENLİ'}")
         
         if is_anomaly == 1:
             print(f"AI TEHLIKE SEZDI: {v}V - Kapatiliyor...")
