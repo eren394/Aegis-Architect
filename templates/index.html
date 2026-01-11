@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aegis Web Panel</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { background: #0f172a; color: #38bdf8; font-family: 'Courier New', monospace; text-align: center; }
+        .box { border: 2px solid #38bdf8; display: inline-block; padding: 30px; margin: 20px; min-width: 250px; border-radius: 15px; background: #1e293b; }
+        .value { font-size: 3.5em; font-weight: bold; color: #f8fafc; }
+        .danger-mode { border-color: #ef4444; color: #ef4444; box-shadow: 0 0 20px #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ AEGIS INTELLIGENCE INTERFACE</h1>
+    <hr style="border: 1px solid #334155; width: 80%;">
+    
+    <div id="v-box" class="box">
+        <h2>VOLTAGE</h2>
+        <div id="v-val" class="value">0.00 V</div>
+    </div>
+    <div id="ai-status-box" class="box" style="border-color: #38bdf8;">
+        <h2>AI ANALYSIS</h2>
+        <div id="ai-msg" style="font-size: 1.5em; font-weight: bold;">SİSTEM GÜVENLİ</div>
+        <div id="ai-subtext" style="font-size: 0.8em; margin-top: 10px;">Aegis Guardian İzliyor...</div>
+    </div>
+    <div id="c-box" class="box">
+        <h2>CURRENT</h2>
+        <div id="c-val" class="value">0.00 A</div>
+    </div>
+
+    <p id="connection-status">Bağlantı Bekleniyor...</p>
+
+    <script>
+        // Socket bağlantısını başlat
+        const socket = io();
+
+        socket.on('connect', () => {
+            document.getElementById('connection-status').innerText = "✅ Sunucuya Bağlanıldı";
+            document.getElementById('connection-status').style.color = "lime";
+        });
+
+       socket.on('update', function(data) {
+    document.getElementById('v-val').innerText = data.v.toFixed(2) + " V";
+    document.getElementById('c-val').innerText = data.c.toFixed(2) + " A";
+    
+    const aiBox = document.getElementById('ai-status-box');
+    const aiMsg = document.getElementById('ai-msg');
+
+    if(data.danger === 1) {
+        // AI Bir Anomali Yakalarsa
+        aiBox.style.borderColor = "#ef4444";
+        aiBox.style.color = "#ef4444";
+        aiBox.style.boxShadow = "0 0 20px #ef4444";
+        aiMsg.innerText = "🚨 ANOMALİ TESPİT EDİLDİ!";
+        document.body.style.backgroundColor = "#2d0a0a"; // Arka plan hafif kararır
+    } else {
+        // Her Şey Yolundaysa
+        aiBox.style.borderColor = "#38bdf8";
+        aiBox.style.color = "#38bdf8";
+        aiBox.style.boxShadow = "none";
+        aiMsg.innerText = "🛡️ SİSTEM GÜVENLİ";
+        document.body.style.backgroundColor = "#0f172a";
+    }
+});
+
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').innerText = "❌ Bağlantı Kesildi!";
+            document.getElementById('connection-status').style.color = "red";
+        });
+    </script>
+</body>
+</html>
