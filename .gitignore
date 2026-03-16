@@ -1,1 +1,14 @@
+# Runtime data
 data/*.db
+
+# Python cache / env
+__pycache__/
+*.py[cod]
+.venv/
+
+# IDE/editor
+.vscode/
+*.swp
+
+# OS
+.DS_Store
